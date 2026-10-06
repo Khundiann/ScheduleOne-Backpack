@@ -4,9 +4,11 @@ using UnityEngine;
 #if IL2CPP
 using Il2CppScheduleOne.ItemFramework;
 using Il2CppScheduleOne.UI;
+using S1Action = Il2CppSystem.Action;
 #elif MONO
 using ScheduleOne.ItemFramework;
 using ScheduleOne.UI;
+using S1Action = System.Action;
 #endif
 
 namespace Backpack.Patches;
@@ -15,7 +17,7 @@ namespace Backpack.Patches;
 public static class StorageMenuPatch
 {
     [HarmonyPatch("Awake")]
-    [HarmonyPrefix]
+    [HarmonyPostfix]
     public static void Awake(StorageMenu __instance)
     {
         if (__instance.SlotsUIs.Length >= PlayerBackpack.MaxStorageSlots)
@@ -47,12 +49,14 @@ public static class StorageMenuPatch
         __instance.SlotsUIs = slots;
     }
 
-    [HarmonyPatch("Open", [typeof(string), typeof(string), typeof(IItemSlotOwner)])]
+    [HarmonyPatch("Open", [typeof(IItemSlotOwner), typeof(string), typeof(string), typeof(S1Action)])]
     [HarmonyPostfix]
-    public static void Open(StorageMenu __instance, string title, string subtitle, IItemSlotOwner owner)
+    public static void Open(StorageMenu __instance, IItemSlotOwner owner, string title, string subtitle, S1Action onClosedCallback)
     {
         var spacing = __instance.SlotGridLayout.cellSize.y + __instance.SlotGridLayout.spacing.y;
-        __instance.CloseButton.anchoredPosition = new Vector2(0f, __instance.SlotGridLayout.constraintCount * -spacing - __instance.CloseButton.sizeDelta.y);
+        __instance.CloseButtonContainer.anchoredPosition = new Vector2(
+            0f,
+            __instance.SlotGridLayout.constraintCount * -spacing - __instance.CloseButtonContainer.sizeDelta.y);
         if (__instance.SlotGridLayout.constraintCount <= 4)
             return;
 

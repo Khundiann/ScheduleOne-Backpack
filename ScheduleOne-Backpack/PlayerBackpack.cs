@@ -1,5 +1,6 @@
 ﻿using Backpack.Config;
 using UnityEngine;
+using HarmonyLib;
 
 #if IL2CPP
 using MelonLoader;
@@ -49,7 +50,9 @@ public class PlayerBackpack : MonoBehaviour
     public static PlayerBackpack Instance { get; private set; }
 
     public bool IsUnlocked => NetworkSingleton<LevelManager>.Instance.GetFullRank() >= Configuration.Instance.UnlockLevel;
-    public bool IsOpen => Singleton<StorageMenu>.Instance.IsOpen && Singleton<StorageMenu>.Instance.TitleLabel.text == StorageName;
+    public bool IsOpen => Singleton<StorageMenu>.Instance != null
+                          && Singleton<StorageMenu>.Instance.IsOpen
+                          && Singleton<StorageMenu>.Instance.TitleLabel.text == StorageName;
 #if IL2CPP
     public Il2CppSystem.Collections.Generic.List<ItemSlot> ItemSlots => _storage.ItemSlots.Cast<Il2CppSystem.Collections.Generic.IEnumerable<ItemSlot>>().ToList();
 #elif MONO
@@ -58,16 +61,33 @@ public class PlayerBackpack : MonoBehaviour
 
     private void Awake()
     {
-        _storage = gameObject.GetComponentInParent<StorageEntity>();
+        if (Instance != null && Instance != this)
+        {
+            Logger.Warning("Multiple PlayerBackpack components found; discarding the duplicate.");
+            Destroy(this);
+            return;
+        }
+
+        var player = gameObject.GetComponentInParent<Player>();
+        try
+        {
+            _storage = player?.GetBackpackStorage();
+        }
+        catch (InvalidOperationException)
+        {
+            _storage = null;
+        }
+
         if (_storage == null)
         {
             Logger.Error("Player does not have a BackpackStorage component!");
+            Destroy(this);
             return;
         }
 
         Logger.Info("Configuring backpack storage...");
         UpdateSize(Configuration.Instance.StorageSlots);
-        OnStartClient(true);
+        Instance = this;
     }
 
     private void Update()
@@ -98,15 +118,17 @@ public class PlayerBackpack : MonoBehaviour
 
     public void Open()
     {
-        if (!_backpackEnabled || !IsUnlocked || Singleton<ManagementClipboard>.Instance.IsEquipped || Singleton<StorageMenu>.Instance.IsOpen || Phone.Instance.IsOpen)
+        var storageMenu = Singleton<StorageMenu>.Instance;
+        if (!_backpackEnabled || !IsUnlocked || storageMenu == null
+            || (Singleton<ManagementClipboard>.Instance?.IsEquipped ?? false)
+            || storageMenu.IsOpen || (Phone.Instance?.IsOpen ?? false))
             return;
 
-        var storageMenu = Singleton<StorageMenu>.Instance;
         storageMenu.SlotGridLayout.constraintCount = _storage.DisplayRowCount;
 #if IL2CPP
-        storageMenu.Open(StorageName, string.Empty, _storage.Cast<IItemSlotOwner>());
+        storageMenu.Open(_storage.Cast<IItemSlotOwner>(), StorageName, string.Empty, null);
 #elif MONO
-        storageMenu.Open(StorageName, string.Empty, _storage);
+        storageMenu.Open(_storage, StorageName, string.Empty, null);
 #endif
         _storage.SendAccessor(Player.Local.NetworkObject);
     }
@@ -116,7 +138,7 @@ public class PlayerBackpack : MonoBehaviour
         if (!_backpackEnabled || !IsOpen)
             return;
 
-        Singleton<StorageMenu>.Instance.CloseMenu();
+        Singleton<StorageMenu>.Instance.Close();
         _storage.SendAccessor(null);
     }
 
@@ -139,7 +161,7 @@ public class PlayerBackpack : MonoBehaviour
 #endif
             if (productInstance == null)
             {
-                if (itemSlot.ItemInstance.Definition.legalStatus != ELegalStatus.Legal)
+                if (!IsLegal(itemSlot.ItemInstance.Definition))
                     return true;
 
                 continue;
@@ -150,6 +172,25 @@ public class PlayerBackpack : MonoBehaviour
         }
 
         return false;
+    }
+
+    private static bool IsLegal(object definition)
+    {
+        if (definition == null)
+            return false;
+
+        var definitionType = definition.GetType();
+        var property = AccessTools.Property(definitionType, "LegalStatus")
+                       ?? AccessTools.Property(definitionType, "legalStatus");
+        var value = property?.GetValue(definition);
+        if (value == null)
+        {
+            var field = AccessTools.Field(definitionType, "LegalStatus")
+                        ?? AccessTools.Field(definitionType, "legalStatus");
+            value = field?.GetValue(definition);
+        }
+
+        return string.Equals(value?.ToString(), "Legal", StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -242,6 +283,7 @@ public class PlayerBackpack : MonoBehaviour
         for (var i = _storage.ItemSlots.Count; i < newSize; i++)
         {
             var itemSlot = new ItemSlot();
+            var slotCountBeforeOwnerAssignment = _storage.ItemSlots.Count;
 #if IL2CPP
             if (itemSlot.onItemDataChanged == null)
                 itemSlot.onItemDataChanged = (Il2CppSystem.Action) _storage.ContentsChanged;
@@ -253,25 +295,11 @@ public class PlayerBackpack : MonoBehaviour
             itemSlot.onItemDataChanged += _storage.ContentsChanged;
             itemSlot.SetSlotOwner(_storage);
 #endif
-        }
-    }
 
-    private void OnStartClient(bool isOwner)
-    {
-        if (!isOwner)
-        {
-            Logger.Info("Destroying non-local player singleton: " + name, null);
-            Destroy(this);
-            return;
+            // Some game versions register the slot during SetSlotOwner while others do not.
+            if (_storage.ItemSlots.Count == slotCountBeforeOwnerAssignment)
+                _storage.ItemSlots.Add(itemSlot);
         }
-
-        if (Instance != null)
-        {
-            Logger.Warning("Multiple instances of " + name + " exist. Keeping prior instance reference.", null);
-            return;
-        }
-
-        Instance = this;
     }
 
     private void OnDestroy()

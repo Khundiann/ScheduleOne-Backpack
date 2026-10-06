@@ -5,6 +5,7 @@ using Il2CppScheduleOne.ItemFramework;
 using Il2CppScheduleOne.PlayerScripts;
 using Il2CppScheduleOne.UI.Shop;
 #elif MONO
+using ScheduleOne.ItemFramework;
 using ScheduleOne.PlayerScripts;
 using ScheduleOne.UI.Shop;
 #endif
@@ -18,7 +19,7 @@ public static class CartPatch
     [HarmonyPostfix]
     public static void GetWarning(Cart __instance, ref bool __result, ref string warning)
     {
-        if (!PlayerBackpack.Instance.IsUnlocked)
+        if (PlayerBackpack.Instance == null || !PlayerBackpack.Instance.IsUnlocked)
             return;
 
         if (warning.StartsWith("Vehicle") || !__result)

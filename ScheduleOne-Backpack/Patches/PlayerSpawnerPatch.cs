@@ -4,12 +4,10 @@
 using Il2CppFishNet.Component.Spawning;
 using Il2CppScheduleOne.PlayerScripts;
 using Il2CppScheduleOne.Storage;
-using Il2CppVLB;
 #elif MONO
 using FishNet.Component.Spawning;
 using ScheduleOne.PlayerScripts;
 using ScheduleOne.Storage;
-using VLB;
 #endif
 
 namespace Backpack.Patches;
@@ -35,12 +33,36 @@ public static class PlayerSpawnerPatch
             return;
         }
 
-        Logger.Info("Adding backpack storage to player prefab...");
-        var storage = player.gameObject.GetOrAddComponent<StorageEntity>();
+        EnsurePlayerBackpackSetup(player, false);
+    }
+
+    public static void EnsurePlayerBackpackSetup(Player player, bool addLocalBackpackComponent)
+    {
+        if (player == null)
+            return;
+
+        var storage = FindBackpackStorage(player) ?? player.gameObject.AddComponent<StorageEntity>();
         storage.SlotCount = PlayerBackpack.MaxStorageSlots;
         storage.DisplayRowCount = 8;
         storage.StorageEntityName = PlayerBackpack.StorageName;
         storage.MaxAccessDistance = float.PositiveInfinity;
-        player.LocalGameObject.GetOrAddComponent<PlayerBackpack>();
+
+        if (!addLocalBackpackComponent)
+            return;
+
+        var localGameObject = player.LocalGameObject != null ? player.LocalGameObject : player.gameObject;
+        if (localGameObject.GetComponent<PlayerBackpack>() == null)
+            localGameObject.AddComponent<PlayerBackpack>();
+    }
+
+    private static StorageEntity FindBackpackStorage(Player player)
+    {
+        foreach (var storage in player.gameObject.GetComponents<StorageEntity>())
+        {
+            if (storage.StorageEntityName == PlayerBackpack.StorageName)
+                return storage;
+        }
+
+        return null;
     }
 }

@@ -19,6 +19,8 @@ public static class PlayerPatch
     [HarmonyPrefix]
     public static void Awake(Player __instance)
     {
+        PlayerSpawnerPatch.EnsurePlayerBackpackSetup(__instance, false);
+
         if (__instance.LocalExtraFiles.Contains("Backpack"))
             return;
 
@@ -41,29 +43,14 @@ public static class PlayerPatch
 #endif
     }
 
-    [HarmonyPatch("Load", typeof(PlayerData), typeof(string))]
-    [HarmonyPrefix]
-    public static void Load(Player __instance, PlayerData data, string containerPath)
+    [HarmonyPatch("OnStartClient")]
+    [HarmonyPostfix]
+    public static void OnStartClient(Player __instance)
     {
-        if (!__instance.Loader.TryLoadFile(containerPath, "Backpack", out var backpackData))
+        if (__instance == null || !__instance.IsOwner)
             return;
 
-        Logger.Info("Loading local backpack data.");
-        try
-        {
-            var backpackStorage = __instance.GetBackpackStorage();
-            if (!ItemSet.TryDeserialize(backpackData, out var itemSet))
-            {
-                Logger.Error("Failed to deserialize backpack data.");
-                return;
-            }
-
-            itemSet.LoadTo(backpackStorage.ItemSlots);
-        }
-        catch (Exception e)
-        {
-            Logger.Error($"Error loading backpack data: {e.Message}");
-        }
+        PlayerSpawnerPatch.EnsurePlayerBackpackSetup(__instance, true);
     }
 
     [HarmonyPatch("LoadInventory")]
@@ -73,18 +60,18 @@ public static class PlayerPatch
         if (string.IsNullOrEmpty(contentsString))
             return;
 
+        var separatorIndex = contentsString.IndexOf("|||", StringComparison.Ordinal);
+        if (separatorIndex < 0)
+            return;
+
+        var backpackData = contentsString[(separatorIndex + 3)..];
+        contentsString = contentsString[..separatorIndex];
+
+        // Every receiving player must remove the transport suffix before the game's
+        // inventory deserializer sees it. Only the owner restores backpack contents.
         if (!__instance.IsOwner)
-        {
-            Logger.Info("Not the owner, skipping backpack data load.");
-            return;
-        }
-
-        var backpackString = contentsString.Split(["|||"], StringSplitOptions.None);
-        if (backpackString.Length < 2)
             return;
 
-        contentsString = backpackString[0];
-        var backpackData = backpackString[1];
         Logger.Info("Loading backpack data from network.");
         try
         {
@@ -103,38 +90,4 @@ public static class PlayerPatch
         }
     }
 
-    [HarmonyPatch("Activate")]
-    [HarmonyPrefix]
-    public static void Activate()
-    {
-        Logger.Info("Activating backpack");
-        PlayerBackpack.Instance.SetBackpackEnabled(true);
-    }
-
-    [HarmonyPatch("Deactivate")]
-    [HarmonyPrefix]
-    public static void Deactivate()
-    {
-        Logger.Info("Deactivating backpack");
-        PlayerBackpack.Instance.SetBackpackEnabled(false);
-    }
-
-    [HarmonyPatch("ExitAll")]
-    [HarmonyPrefix]
-    public static void ExitAll()
-    {
-        Logger.Info("Exiting all backpacks");
-        PlayerBackpack.Instance.SetBackpackEnabled(false);
-    }
-
-    [HarmonyPatch("OnDied")]
-    [HarmonyPrefix]
-    public static void OnDied(Player __instance)
-    {
-        if (!__instance.Owner.IsLocalClient)
-            return;
-
-        Logger.Info("Player died, disabling backpack");
-        PlayerBackpack.Instance.SetBackpackEnabled(false);
-    }
 }

@@ -15,10 +15,12 @@ public static class PlayerExtensions
         if (player == null)
             throw new ArgumentNullException(nameof(player));
 
-        var backpackStorage = player.gameObject.GetComponent<StorageEntity>();
-        if (backpackStorage == null)
-            throw new InvalidOperationException("Player does not have a BackpackStorage component.");
+        foreach (var storage in player.gameObject.GetComponents<StorageEntity>())
+        {
+            if (storage.StorageEntityName == PlayerBackpack.StorageName)
+                return storage;
+        }
 
-        return backpackStorage;
+        throw new InvalidOperationException("Player does not have a BackpackStorage component.");
     }
 }

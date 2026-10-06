@@ -24,6 +24,17 @@ A storage expansion modification for Schedule I available on [Steam](https://sto
 - **Toggle Backpack:** Press the configured key (default: **B**) to open or close the backpack interface.
 - **Item Management:** Drag and drop items between your main inventory and the backpack.
 
+## Building
+
+Point `S1Dir` at a MelonLoader-enabled game installation. Deployment and game launch are opt-in.
+
+```powershell
+dotnet build .\ScheduleOne-Backpack.sln -c IL2CPP /p:S1Dir="C:\path\to\Schedule I"
+dotnet build .\ScheduleOne-Backpack.sln -c MONO /p:S1Dir="C:\path\to\Schedule I - Mono"
+```
+
+Add `/p:DeployToGame=true` only when you want the post-build step to copy the DLL and launch the game.
+
 ## Credits & Collaboration
 
 - **Developer:** D-Kay
@@ -33,6 +44,7 @@ Want to help improve the mod? Feel free to reach out on Discord or contribute vi
 
 ## Previous Versions
 
+- **Version 1.9.0** – Added compatibility with Schedule I 0.4.7 beta, including the new storage-menu and player-data APIs.
 - **Version 1.8.0** – Added config sync from host to clients; fixed incorrect scaling of backpack UI; fixed incorrect cart overflow warning.
 - **Version 1.7.0** – Added support for more than 20 slots in backpack; added support for using the backpack first when buying more items than your intentory can hold; added configurable backpack search to police behaviour.
 - **Version 1.6.0** – Made multiple settings configurable; added a level requirement for using the backpack.

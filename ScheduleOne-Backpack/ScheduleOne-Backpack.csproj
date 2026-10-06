@@ -4,7 +4,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <PlatformTarget>x64</PlatformTarget>
         <RootNamespace>Backpack</RootNamespace>
-        <Version>1.8.1</Version>
+        <Version>1.9.0</Version>
         <IsPackable>false</IsPackable>
         <LangVersion>latest</LangVersion>
         <Configurations>MONO;IL2CPP</Configurations>
@@ -26,11 +26,11 @@
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)' == 'IL2CPP'">
-        <S1Dir>D:\Steam\steamapps\common\Schedule I</S1Dir>
+        <S1Dir Condition="'$(S1Dir)' == ''">D:\Steam\steamapps\common\Schedule I</S1Dir>
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)' == 'MONO'">
-        <S1Dir>D:\Steam\steamapps\common\Schedule I - Mono</S1Dir>
+        <S1Dir Condition="'$(S1Dir)' == ''">D:\Steam\steamapps\common\Schedule I - Mono</S1Dir>
     </PropertyGroup>
 
     <ItemGroup>
@@ -77,6 +77,9 @@
         </Reference>
         <Reference Include="Assembly-CSharp">
             <HintPath>$(S1Dir)\MelonLoader\Il2CppAssemblies\Assembly-CSharp.dll</HintPath>
+        </Reference>
+        <Reference Include="Il2CppScheduleOne.Core">
+            <HintPath>$(S1Dir)\MelonLoader\Il2CppAssemblies\Il2CppScheduleOne.Core.dll</HintPath>
         </Reference>
         <Reference Include="Il2Cppcom.rlabrecque.steamworks.net">
             <HintPath>$(S1Dir)\MelonLoader\Il2CppAssemblies\Il2Cppcom.rlabrecque.steamworks.net.dll</HintPath>
@@ -129,6 +132,9 @@
         <Reference Include="Assembly-CSharp">
             <HintPath>$(S1Dir)\Schedule I_Data\Managed\Assembly-CSharp.dll</HintPath>
         </Reference>
+        <Reference Include="ScheduleOne.Core">
+            <HintPath>$(S1Dir)\Schedule I_Data\Managed\ScheduleOne.Core.dll</HintPath>
+        </Reference>
         <Reference Include="com.rlabrecque.steamworks.net">
             <HintPath>$(S1Dir)\Schedule I_Data\Managed\com.rlabrecque.steamworks.net.dll</HintPath>
         </Reference>
@@ -180,7 +186,7 @@
         <Publicize Include="FishNet.Runtime" />
     </ItemGroup>
 
-    <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(DeployToGame)' == 'true'">
         <Exec Command="tasklist | findstr /I &quot;Schedule.*I.exe&quot; &gt;nul &amp;&amp; taskkill /F /IM &quot;Schedule I.exe&quot;&#xD;&#xA;COPY &quot;$(TargetPath)&quot; &quot;$(S1Dir)\Mods&quot;&#xD;&#xA;START &quot;&quot; &quot;$(S1Dir)\Schedule I.exe&quot;" />
     </Target>
 </Project>
